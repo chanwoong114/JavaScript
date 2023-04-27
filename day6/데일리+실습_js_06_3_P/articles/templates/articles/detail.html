@@ -1,0 +1,181 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h2>DETAIL</h2>
+  <h3>{{ article.pk }} 번째 글</h3>
+  <hr>
+  <p>제목 : {{ article.title }}</p>
+  <p>내용 : {{ article.content }}</p>
+  <p>작성시각 : {{ article.created_at }}</p>
+  <p>수정시각 : {{ article.updated_at }}</p>
+  <hr>
+  {% if user == article.user %}
+    <a href="{% url 'articles:update' article.pk %}">[UPDATE]</a>
+    <form action="{% url 'articles:delete' article.pk %}" method="POST">
+      {% csrf_token %}
+      <input type="submit" value="DELETE">
+    </form>
+  {% endif %}
+  <a href="{% url 'articles:index' %}">[back]</a>
+  <hr>
+  <h4>댓글 목록</h4>
+  <p id="comment-count"></p>
+  <ul id="comment-list">
+    {% for comment in comments %}
+      <li id="comment-{{ comment.pk }}" data-comment-pk="{{ comment.pk }}">
+        {{ comment.user }} - <span>{{ comment.content }}</span>
+        {% if user == comment.user %}
+          <form action="{% url 'articles:comments_delete' article.pk comment.pk %}" method="POST" class="d-inline">
+            {% csrf_token %}
+            <input type="submit" value="DELETE">
+          </form>
+          <button id="comment-update" data-comment-pk="{{ comment.id }}">수정</button>
+        {% endif %}
+      </li>
+    {% empty %}
+      <p id="comment_none">댓글이 없어요..</p>
+    {% endfor %}
+  </ul>
+
+  <hr>
+  {% if request.user.is_authenticated %}
+    <form id="comment-form" data-article-id="{{ article.id }}">
+      {% csrf_token %}
+      {{ comment_form }}
+      <input type="submit" name="content">
+    </form>
+  {% else %}
+    <a href="{% url 'accounts:login' %}">[댓글을 작성하려면 로그인하세요.]</a>
+  {% endif %}
+{% endblock content %}
+
+{% block script %}
+  <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+  <script>
+    const form = document.querySelector('#comment-form')
+    const input = document.querySelector('[name=content]')
+    const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value
+    const p = document.querySelector('#comment_none')
+    const commentCnt = document.querySelector('#comment-count')
+    commentCnt.innerText = `{{ comments|length }}개의 댓글이 있습니다.`
+    
+
+    const updateToggle = function (event) {
+      const { commentPk } = event.target.dataset
+      const targetComment = event.target.parentNode
+      const updateInput = document.createElement('input')
+      updateInput.value = targetComment.childNodes[1].innerText
+      updateInput.name = 'content'
+
+      const updateBtn = document.createElement('button')
+      updateBtn.innerText = 'update'
+
+      updateBtn.addEventListener('click', event => {
+        event.preventDefault()
+        let data = new FormData()
+        data.append('content', updateInput.value)
+        
+        axios({
+          method: "POST",
+          url: `/articles/{{ article.pk }}/comments/${commentPk}/update/`,
+          data,
+          headers: {'X-CSRFToken': csrftoken}
+        })
+        .then(res => {
+          const {commentPk, articlePk, commentCount} = res.data
+          targetComment.innerText = '{{ request.user.username }} - '
+
+          const span = document.createElement('span')
+          span.innerText = `${updateInput.value} `
+
+          const newDeleteBtn = document.createElement('button')
+          const newUpdateBtn = document.createElement('button')
+
+          newDeleteBtn.setAttribute('data-comment-pk', `${commentPk}`)
+          newDeleteBtn.addEventListener('click', deleteComment)
+          newDeleteBtn.innerText = 'DELETE'
+
+          newUpdateBtn.setAttribute('data-comment-pk', `${commentPk}`)
+          newUpdateBtn.addEventListener('click', updateToggle)
+          newUpdateBtn.innerText = '수정'
+
+
+          targetComment.append(span, newDeleteBtn, newUpdateBtn)
+        })
+      })
+
+      targetComment.innerText = ''
+      targetComment.append(updateInput, updateBtn)
+    }
+
+    const deleteComment = function(event) {
+      event.preventDefault()
+      const { commentPk } = event.target.dataset
+      const liTag = event.target.parentNode
+      axios({
+        method: 'post',
+        url: `http://localhost:8000/articles/{{article.pk}}/comments/${commentPk}/delete/`,
+        headers: {'X-CSRFToken': csrftoken}
+      })
+      .then(res => {
+        console.log('삭제되었습니다.')
+        liTag.remove()
+      })
+    }
+
+    console.log(form)
+    form.addEventListener('submit', function (event) {
+      event.preventDefault()
+	// 이곳에 코드를 작성하세요
+      let data = new FormData()
+      data.append('content', input.value) 
+      const articleId = event.target.dataset.articleId
+
+      axios({
+        method: 'post',
+        url: `http://localhost:8000/articles/{{article.pk}}/comments/`,
+        data,
+        headers: {'X-CSRFToken': csrftoken},
+      })
+      .then((response) => {
+        const {commentPk, commentCount} = response.data
+        const li = document.createElement('li')
+      
+        li.innerText = '{{ request.user.username }} - '
+
+        const span = document.createElement('span')
+        span.innerText = `${input.value} `
+
+        const newDeleteBtn = document.createElement('button')
+        const newUpdateBtn = document.createElement('button')
+
+        newDeleteBtn.setAttribute('data-comment-pk', `${commentPk}`)
+        newDeleteBtn.addEventListener('click', deleteComment)
+        newDeleteBtn.innerText = 'DELETE'
+        
+        newUpdateBtn.setAttribute('id', 'comment-update')
+        newUpdateBtn.setAttribute('data-comment-pk', `${commentPk}`)
+        newUpdateBtn.addEventListener('click', updateToggle)
+        newUpdateBtn.innerText = '수정'
+
+        li.append(span, newDeleteBtn, newUpdateBtn)
+
+        const ul = document.querySelector('#comment-list')
+        ul.append(li)
+        
+        input.value=''
+
+        let cnt = commentCount
+        commentCnt.innerText = `${ cnt }개의 댓글이 있습니다.`
+
+      })
+    })
+
+    const updateTags = document.querySelectorAll('#comment-update')
+
+    updateTags.forEach(btn => {
+      btn.addEventListener('click', updateToggle)
+    })
+
+  </script>
+{% endblock script %}

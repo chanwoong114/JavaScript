@@ -16,22 +16,14 @@
     body.appendChild(h1Tag)
     body.appendChild(ulTag)
 
-    const liTag1 = document.createElement('li')
-    liTag1.innerText = '양치하기'
-    const liTag2 = document.createElement('li')
-    liTag2.innerText = '공부하기'
-    const liTag3 = document.createElement('li')
-    liTag3.innerText = '휴식하기'
+    const todos = ['양치하기', '공부하기', '휴식하기']
 
-    const liTags = document.querySelectorAll('li')
+    todos.forEach(todo => {
+      const liTag = document.createElement('li')
+      liTag.innerText = todo
 
-    liTags.forEach(element => {
-      return ulTag.appendChild(element)
-    });
-
-    ulTag.appendChild(liTag1)
-    ulTag.appendChild(liTag2)
-    ulTag.appendChild(liTag3)
+      ulTag.append(liTag)
+    })
 
   </script>
 </body>
